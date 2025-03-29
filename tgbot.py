@@ -1,167 +1,85 @@
 import telebot
-from telebot import types
-import importlib
+from telebot import TeleBot, types
 from schedules import *
 
-from telebot import TeleBot, types
+bot = TeleBot("7637278497:AAGOP7ntdnoCfDuKLPAnNNiUmbUd_BIrb0c")  # Замените на свой токен
 
-bot = TeleBot("7637278497:AAGOP7ntdnoCfDuKLPAnNNiUmbUd_BIrb0c")  # Замените YOUR_BOT_TOKEN_HERE на ваш токен
+# Списки групп для ПТИ:
+# для курсов, кроме 2-го
+valid_groups = [
+    "4093", "4092", "4711", "4541", "4413", "4411", "4406", "4405",
+    "4371", "4312", "4311", "4091", "4075", "4071", "4061", "4042",
+    "4035", "4031", "4026", "4025", "4022", "4016", "4015", "4012"
+]
+# для 2-го курса (пример, заполните своими данными)
+second_year_groups = ["2031", "2032", "2041", "2042", "2051", "2052"]
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    btn1 = types.KeyboardButton("очная форма обучения")
-    btn2 = types.KeyboardButton("заочная форма обучения")
-    markup.add(btn1, btn2)
-
-    bot.send_message(
-        message.chat.id,
-        "Добро пожаловать! Выберите форму обучения:",
-        reply_markup=markup
-    )
-
-
-@bot.message_handler(content_types=["text"])
-def handle_text(message):
-    if message.text == "очная форма обучения":
-        show_course_levels(message)
-    elif message.text == "Назад":
-        start(message)
-    else:
-        bot.send_message(
-            message.chat.id,
-            "Пожалуйста, выберите один из предложенных вариантов."
-        )
-
-
-def show_course_levels(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    courses = ["ИЭИС", "ИЦЭУС", "ПИ", "ИБХИ", "ИГУМ", "ИМО", "ИЮР", "ИПТ", "ПТИ"]
-    for i in range(0, len(courses), 3):
-        markup.row(*[types.KeyboardButton(course) for course in courses[i:i + 3]])
-    markup.add(types.KeyboardButton("Назад"))
-
-    bot.send_message(
-        message.chat.id,
-        "Выберите институт:",
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, handle_course_level_selection)
-
-
-def handle_course_level_selection(message):
-    if message.text == "Назад":
-        start(message)
-        return
-
-    institutes = ["ИЭИС", "ИЦЭУС", "ПИ", "ИБХИ", "ИГУМ", "ИМО", "ИЮР", "ИПТ", "ПТИ"]
-    if message.text in institutes:
-        bot.send_message(
-            message.chat.id,
-            f"Вы выбрали {message.text}. "
-        )
-        show_courses(message)
-    else:
-        bot.send_message(
-            message.chat.id,
-            "Некорректный выбор. Попробуйте снова."
-        )
-        show_course_levels(message)
-
+    show_courses(message)
 
 def show_courses(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     courses = ["1 курс", "2 курс", "3 курс", "4 курс", "5 курс"]
+    # Располагаем кнопки по 3 в ряд
     for i in range(0, len(courses), 3):
         markup.row(*[types.KeyboardButton(course) for course in courses[i:i + 3]])
-    markup.add(types.KeyboardButton("Назад"))
-
-    bot.send_message(
-        message.chat.id,
-        "Теперь выберите курс :",
-        reply_markup=markup
-    )
+    bot.send_message(message.chat.id, "Выберите курс:", reply_markup=markup)
     bot.register_next_step_handler(message, handle_course_selection)
 
 
 def handle_course_selection(message):
-    if message.text == "Назад":
-        show_course_levels(message)
-        return
-
-    if message.text in ["1 курс", "2 курс", "3 курс", "4 курс", "5 курс"]:
-        bot.send_message(
-            message.chat.id,
-            f"Вы выбрали {message.text}. "
-        )
-        show_groups(message)
-    else:
-        bot.send_message(
-            message.chat.id,
-            "Некорректный выбор. Попробуйте снова."
-        )
+    if message.text not in ["1 курс", "2 курс", "3 курс", "4 курс", "5 курс"]:
+        bot.send_message(message.chat.id, "Некорректный выбор. Попробуйте снова.")
         show_courses(message)
+        return
+    selected_course = message.text
+    show_groups(message, selected_course)
 
-def show_groups(message):
+def show_groups(message, course):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    groups = [
-        "4711", "4541", "4413", "4411", "4406", "4405", "4371", "4312",
-        "4311",  "4093", "4092", "4081", "4075", "4072", "4012" , "4061",
-        "4045", "4042", "4035", "4031", "4025", "4021", "4016", "4015", "4011"
-    ]
+    # Если выбран 2 курс, используем второй список групп
+    groups = second_year_groups if course == "2 курс" else valid_groups
+    # Формируем клавиатуру с группами (3 кнопки в ряду)
     for i in range(0, len(groups), 3):
-        markup.row(*[types.KeyboardButton(group) for group in groups[i:i + 3]])
+        markup.row(*[types.KeyboardButton(g) for g in groups[i:i + 3]])
     markup.add(types.KeyboardButton("Назад"))
+    bot.send_message(message.chat.id, f"Выберите группу для {course}:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_group_selection, course)
 
-    bot.send_message(
-        message.chat.id,
-        "Теперь выберите группу:",
-        reply_markup=markup
-    )
-
-    bot.register_next_step_handler(message, handle_group_selection)
-
-
-def handle_group_selection(message):
+def handle_group_selection(message, course):
     if message.text == "Назад":
         show_courses(message)
         return
 
-    if message.text in ["4093", "4092", "4711", "4541", "4413", "4411", "4406", "4405", "4371", "4312" , "4311" "4091", "4075" "4071" , "4061", "4042", "4035", "4026" , "4025", "4022", "4016", "4015", "4012"]:
-        show_schedule(message, message.text)
+    groups = second_year_groups if course == "2 курс" else valid_groups
+    if message.text in groups:
+        show_schedule(message, message.text, course)
     else:
-        bot.send_message(
-            message.chat.id,
-            "Такой группы нет. Попробуйте снова."
-        )
-        show_groups(message)
+        bot.send_message(message.chat.id, "Такой группы нет. Попробуйте снова.")
+        show_groups(message, course)
 
-
-def show_schedule(message, group):
+def show_schedule(message, group, course):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Назад"]
+    # Располагаем дни по 2 кнопки в ряду
     for i in range(0, len(days), 2):
         markup.row(*[types.KeyboardButton(day) for day in days[i:i + 2]])
+    bot.send_message(message.chat.id, "Выберите день недели:", reply_markup=markup)
+    bot.register_next_step_handler(message, choose_day, group, course)
 
-    bot.send_message(
-        message.chat.id,
-        "Выберите день недели:",
-        reply_markup=markup
-    )
-    bot.register_next_step_handler(message, choose_day, group)
-
-
-def choose_day(message, group):
+def choose_day(message, group, course):
     if message.text == "Назад":
-        show_groups(message)
+        show_groups(message, course)
         return
 
     schedule_text = get_schedule(message.text, group)
     bot.send_message(message.chat.id, schedule_text)
-    show_schedule(message, group)
-
+    # После показа расписания снова предлагаем выбрать день
+    show_schedule(message, group, course)
 
 def get_schedule(day, group):
+    # Словарь расписаний для каждой группы. Функции расписаний импортируются из schedules.
     schedules = {
         "4093": {
             "Понедельник": schedule_monday4093,
@@ -195,14 +113,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4541,
             "Суббота": schedule_saturday4541
         },
-        "4411": {
-            "Понедельник": schedule_monday4411,
-            "Вторник": schedule_tuesday4411,
-            "Среда": schedule_Wednesday4411,
-            "Четверг": schedule_thursday4411,
-            "Пятница": schedule_friday4411,
-            "Суббота": schedule_saturday4411
-        },
         "4413": {
             "Понедельник": schedule_monday4413,
             "Вторник": schedule_tuesday4413,
@@ -210,6 +120,14 @@ def get_schedule(day, group):
             "Четверг": schedule_thursday4413,
             "Пятница": schedule_friday4413,
             "Суббота": schedule_saturday4413
+        },
+        "4411": {
+            "Понедельник": schedule_monday4411,
+            "Вторник": schedule_tuesday4411,
+            "Среда": schedule_Wednesday4411,
+            "Четверг": schedule_thursday4411,
+            "Пятница": schedule_friday4411,
+            "Суббота": schedule_saturday4411
         },
         "4406": {
             "Понедельник": schedule_monday4406,
@@ -283,7 +201,7 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4042,
             "Суббота": schedule_saturday4042
         },
-         "4035": {
+        "4035": {
             "Понедельник": schedule_monday4035,
             "Вторник": schedule_tuesday4035,
             "Среда": schedule_wednesday4035,
@@ -291,7 +209,15 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4035,
             "Суббота": schedule_saturday4035
         },
-         "4026": {
+        "4031": {
+            "Понедельник": schedule_monday4031,
+            "Вторник": schedule_tuesday4031,
+            "Среда": schedule_wednesday4031,
+            "Четверг": schedule_thursday4031,
+            "Пятница": schedule_friday4031,
+            "Суббота": schedule_saturday4031
+        },
+        "4026": {
             "Понедельник": schedule_monday4026,
             "Вторник": schedule_tuesday4026,
             "Среда": schedule_wednesday4026,
@@ -299,7 +225,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4026,
             "Суббота": schedule_saturday4026
         },
-
         "4025": {
             "Понедельник": schedule_monday4025,
             "Вторник": schedule_tuesday4025,
@@ -308,7 +233,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4025,
             "Суббота": schedule_saturday4025
         },
-
         "4022": {
             "Понедельник": schedule_monday4022,
             "Вторник": schedule_tuesday4022,
@@ -317,7 +241,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4022,
             "Суббота": schedule_saturday4022
         },
-
         "4016": {
             "Понедельник": schedule_monday4016,
             "Вторник": schedule_tuesday4016,
@@ -326,7 +249,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4016,
             "Суббота": schedule_saturday4016
         },
-
         "4015": {
             "Понедельник": schedule_monday4015,
             "Вторник": schedule_tuesday4015,
@@ -335,7 +257,6 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4015,
             "Суббота": schedule_saturday4015
         },
-
         "4012": {
             "Понедельник": schedule_monday4012,
             "Вторник": schedule_tuesday4012,
@@ -344,10 +265,7 @@ def get_schedule(day, group):
             "Пятница": schedule_friday4012,
             "Суббота": schedule_saturday4012
         }
-
-
     }
-
     group_schedule = schedules.get(group, {})
     return group_schedule.get(day, "Расписание не найдено.")
 
